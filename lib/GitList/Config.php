@@ -2,7 +2,12 @@
 
 namespace GitList;
 
-class Config
+use Symfony\Component\Config\Loader\FileLoader;
+use Symfony\Component\Config\Definition\Builder\TreeBuilder;
+use Symfony\Component\Config\Definition\Processor;
+use Symfony\Component\Config\Definition\ConfigurationInterface;
+
+class Config implements ConfigurationInterface
 {
     protected $data;
 
@@ -12,8 +17,10 @@ class Config
             die("Please, create the config.ini file.");
         }
 
-        $this->data = parse_ini_file('config.ini', true);
-        $this->validateOptions();
+        $data = parse_ini_file('config.ini', true);
+
+        $processor = new Processor();
+        $this->data = $processor->processConfiguration($this, array('gitlist' => $data));
     }
 
     public function get($section, $option)
@@ -43,10 +50,24 @@ class Config
         $this->data[$section][$option] = $value;
     }
 
-    protected function validateOptions()
+    public function getConfigTreeBuilder()
     {
-        if (!$this->get('git', 'repositories') || !is_dir($this->get('git', 'repositories'))) {
-            die("Please, edit the config.ini file and provide your repositories directory");
-        }
+        $treeBuilder = new TreeBuilder();
+        $treeBuilder->root('gitlist', 'array')->children()
+            ->arrayNode('git')
+                ->children()
+                    ->scalarNode('client')->defaultValue('/usr/bin/git')->end()
+                    ->scalarNode('repositories')->cannotBeEmpty()->end()
+                ->end()
+            ->end()
+            ->arrayNode('app')
+                ->defaultValue(array())
+                ->prototype('scalar')->end()
+            ->end()
+            ->arrayNode('filetypes')
+            ->end()
+        ->end();
+
+        return $treeBuilder;
     }
 }
